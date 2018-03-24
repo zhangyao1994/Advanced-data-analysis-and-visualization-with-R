@@ -1,0 +1,127 @@
+```{r global_options, include=FALSE}
+library(knitr)
+opts_chunk$set(fig.align="center", fig.height=3, fig.width=4)
+```
+## In-class worksheet 7
+**Feb 6, 2018**
+*Yao in the class*
+
+In this worksheet, we will use the libraries tidyverse and nycflights13:
+```{r message=FALSE}
+library(tidyverse)
+theme_set(theme_bw(base_size=12)) # set default ggplot2 theme
+library(nycflights13)
+```
+The nycflights13 package contains information about all planes departing fron New York City in 2013. 
+
+## 1. Joining tables
+
+The following two tables list the population size and area (in sq miles) of three major Texas cities each:
+```{r}
+population <- read.csv(text=
+"city,year,population
+Houston,2014,2239558
+San Antonio,2014,1436697
+Austin,2014,912791
+Austin,2010,790390", stringsAsFactors = FALSE)
+population
+area <- read.csv(text=
+"city,area
+Houston,607.5
+Dallas,385.6
+Austin,307.2", stringsAsFactors = FALSE)
+area
+```
+*Note: We can read data from .txt/.csv with "stringsAsFactors = FALSE".*
+
+Combine these two tables using the functions `left_join()`, `right_join()`, and `inner_join()`. How do these join functions differ in their results?
+
+```{r}
+left_join(population,area) # keep the left data, add variables from the right data
+right_join(population,area) # keep the right data, add variables from the right data
+inner_join(population,area) # Intersection observations for column 1, all variables
+semi_join(population,area) # Intersection observations for column 1, left variables
+full_join(population,area) # All observations, all variables, with NA filled
+anti_join(population,area) # observations for column 1 in left but not in right, left variables
+```
+
+## 2. Relationship between arrival delay and age of plane
+
+The table `flights` from nycflights13 contains information about individual departures:
+```{r}
+flights
+```
+Individual planes are indicated by their tail number (`tailnum` in the table). Calculate the mean arrival delay (`arr_delay`) for each tail number. Do you notice anything unusual in the result? Try to calculate the mean with and without adding the option `na.rm=TRUE`.
+```{r}
+flights %>% group_by(tailnum) %>% summarize(mean_arrival_delay = mean(arr_delay))
+flights %>% group_by(tailnum) %>% summarize(mean_arrival_delay = mean(arr_delay,na.rm=TRUE)) -> MeanArrivalDelay# a logical value indicating whether NA values should be stripped before the computation proceeds.
+```
+
+Information about individual planes is availabe in the table `planes`:
+```{r}
+planes
+```
+
+In particular, this table lists the year each individual plane was manufactured. Make a combined table that holds tail number, mean arrival delay, and year of manufacture for each plane. Then plot mean arrival delay vs. year of manufacture.
+```{r}
+full_join(MeanArrivalDelay,planes) %>% select(tailnum,mean_arrival_delay,year) -> temp
+# left_join(MeanArrivalDelay,planes) %>% select(tailnum,mean_arrival_delay,year) -> temp
+temp
+ggplot(temp,aes(y = mean_arrival_delay,x = year)) + geom_point()
+```
+
+## 3. Relationship between arrival delay and temperature
+
+Now calculate the mean arrival delay for each day of the year, and store in a variable called `daily_delays`.
+```{r}
+flights %>% group_by(year,month,day) %>% summarize(mean_arrival_delay = mean(arr_delay,na.rm=TRUE)) -> daily_delays
+daily_delays
+```
+
+We want to correlate these delay values with the temperature of each day. The data frame `weather` holds temperature measurements for each hour of each day:
+```{r}
+weather
+```
+
+First, calculate the mean temperature for each day, and store in a variable called `mean_temp`:
+```{r}
+weather %>% group_by(year,month,day) %>% summarize(mean_temp = mean(temp)) -> mean_temp
+mean_temp
+```
+
+Now combine the mean delay and the mean temperature into one table, and then plot mean delay vs. mean temperature.
+```{r}
+full_join(daily_delays,mean_temp) %>% ggplot(aes(y = mean_arrival_delay,x = mean_temp)) + geom_point()
+
+```
+
+## 4. If this was easy
+
+Find out for how many tail numbers in the `flights` data set we have no information in the `planes` data set. What do we have to pay attention to when joining the `flights` and `planes` tables?
+```{r}
+left_join(flights,planes) -> joined_data
+flights %>% left_join(planes, by='tailnum') %>% filter(is.na(type)) %>% tally()
+```
+*There are 52606 such flights. It is important here to tell the left_join() function to join by tailnum, otherwise it tries to join by tailnum and year, but year has different meanings in the two tables.*
+
+Calculate the mean arrival delay by plane model and by plane engine. Sort in order of descending mean delay. Remove all tailnumbers for which no plane information is available.
+```{r}
+# 1. plane model
+# we first join the fligths table and the planes table to make a new table holding plane model, engine, and arrival delay
+flights %>% left_join(planes, by='tailnum') %>% 
+  filter(!is.na(type)) %>% 
+  select(model, engine, arr_delay) -> delay_table
+delay_table
+# we next calculate the mean delay per model
+delay_table %>% group_by(model) %>% 
+  summarize(mean_delay=mean(arr_delay, na.rm=T)) %>%
+  arrange(desc(mean_delay)) -> model_delay
+model_delay
+# 2. plane engine
+# we go back to the delay_table we created above, and now calculate the mean per engine
+delay_table %>% group_by(engine) %>% 
+  summarize(mean_delay=mean(arr_delay, na.rm=T)) %>%
+  arrange(desc(mean_delay)) -> engine_delay
+engine_delay
+```
+

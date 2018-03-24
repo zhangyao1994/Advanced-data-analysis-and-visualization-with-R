@@ -1,0 +1,116 @@
+```{r global_options, include=FALSE}
+library(knitr)
+opts_chunk$set(fig.align="center", fig.height=3, fig.width=4)
+```
+## In-class worksheet 6
+**Feb 1, 2018**
+
+In this worksheet, we will continue to work with the tidyverse libraries:
+```{r message=FALSE}
+library(tidyverse)
+```
+
+## 1. The msleep dataset
+
+The `msleep` dataset, provided with ggplot2, contains information about sleep and awake times of different mammals:
+```{r}
+msleep
+msleep %>% filter(vore=="herbi") %>% group_by(order) %>% summarize(count=n()) %>% arrange(desc(count)) # filter -> group -> count
+```
+
+Verify that the sum of total sleep time (column `sleep_total`) and total awake time (column `awake`)  adds up to 24h for all animals in the `msleep` dataset.
+```{r}
+# R code goes here.
+msleep.new <- mutate(msleep, SumSleepTime = sleep_total+awake)
+filter(msleep.new,SumSleepTime != 24)
+
+msleep %>% mutate(DayTime = sleep_total+awake) %>% 
+  select(name,DayTime) %>% 
+  filter(DayTime!=24)
+```
+
+Make a list of all the domesticated species in the `msleep` dataset, in alphabetical order. Hint: domesticated species have the entry "domesticated" in the column `conservation`.
+```{r}
+msleep %>% filter(conservation=='domesticated') %>% 
+  select(name) %>% arrange()
+```
+
+For the different vore classifications, tally how many species are awake for at least 18 hours. Hint: use the function `tally()`.
+```{r}
+msleep %>% group_by(vore) %>% tally(awake>=18)
+
+msleep %>% filter(awake>=18) %>% group_by(vore) %>% tally()
+```
+
+Using the function `top_n()`, identify the top-10 least-awake animals, and list them from least awake to most awake. Explain why this analysis gives you 11 results instead of 10.
+```{r}
+msleep %>% select(name, sleep_total) %>% 
+  top_n(10,sleep_total) %>% 
+  arrange(sleep_total)
+
+msleep %>% select(name, sleep_total) %>% top_n(10,sleep_total) %>% arrange(desc(sleep_total))
+```
+*The 10th has 2.*
+
+Considering only carnivores and herbivores, make a plot of the percent of time each animal is in REM sleep (out of the total sleep time) vs. the animal's total sleep time. Hint: Use the operator `|` to indicate logical OR in the `filter()` function.
+```{r}
+msleep %>% filter(vore=='carni' | vore=='herbi') %>% 
+  mutate(PerREM=sleep_rem/sleep_total) %>%   ggplot(aes(x=sleep_total,y=PerREM,color=vore))+geom_point()
+
+```
+
+
+## 2. The diamonds dataset
+
+The `diamonds` dataset provided by ggplot2 provides information about quality and price of 53940 diamonds:
+```{r}
+head(diamonds)
+```
+
+The best cuts of diamonds are "Very Good", "Premium", and "Ideal". Make a table that selects only those diamonds, and find the minimum, median, and maximum price for each cut. Hint: The operator `%in%` is helpful for selecting the diamond cuts.
+```{r}
+diamonds %>% filter(cut %in% c("Very Good", "Premium", "Ideal")) %>% 
+  group_by(cut) %>% 
+  summarize(min.price=min(price), med.price=median(price), max.price=max(price))
+```
+
+For each of the different diamond cuts, calculate the mean carat level among the diamonds whose price falls within 10% of the most expensive diamond for that cut.
+```{r}
+diamonds %>% group_by(cut) %>%
+  filter(price > 0.9*max(price)) %>%
+  summarize(mean.carat=mean(carat))
+```
+
+For each of the different diamond cuts, calculate the mean carat level among the top-10% most expensive diamonds.
+```{r}
+diamonds %>% group_by(cut) %>%
+  mutate(price_rank = rank(desc(price))) %>% # rank diamonds by price, in descending order
+  filter(price_rank < 0.1*max(price_rank)) %>% # pick the top 10%
+  summarize(mean.carat=mean(carat))
+```
+
+Make a table that contains the median price for each combination of `cut` and `clarity`, and arrange the final table in descending order of median price.
+```{r}
+diamonds %>% group_by( cut, clarity ) %>%
+  summarize(med.price = median(price)) %>% 
+  arrange(desc(med.price))
+```
+
+Now arrange the same table first by cut and then within each cut group by median price.
+```{r}
+diamonds %>% group_by( cut, clarity ) %>%
+  summarize(med.price = median(price)) %>% 
+  arrange(desc(cut), desc(med.price))
+```
+
+
+## 3. If this was easy
+
+For the `diamonds` data set, using the function `do()`, fit a linear model of price vs. carat separately for each cut. Then make a table that holds the resulting intercepts and slopes.
+```{r}
+diamonds %>% group_by(cut) %>%
+  do(lm.result = lm(price ~ carat, data=.)) -> fitted.models
+do(fitted.models, data.frame(cut=.$cut, 
+                             intercept=coef(.$lm.result)[1], 
+                             slope=coef(.$lm.result)[2]))
+```
