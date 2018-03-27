@@ -22,12 +22,15 @@ The `iris` dataset has four measurements per observational unit (iris plant):
 head(iris)
 ddply(iris,.(Species),summarize,tol_in_group=length(Species))
 
-# make repeated observations
+# repeated2: make each observation repeated twice
 iris.selected <- iris[1:150,]
 iris.repeated2 <- iris.selected[rep(seq_len(nrow(iris.selected)), each=2),] # each is repeated twice
 head(iris.repeated2)
 
-iris.repeated3 <- rbind(iris.repeated2,iris) # each is repeated for three times
+# repeated3: make versicolor observations repeated for 6 times
+iris.selected <- iris[50:100,]
+temp <- iris.selected[rep(seq_len(nrow(iris.selected)), each=5),] # each is repeated twice
+iris.repeated3 <- rbind(temp,iris) # each is repeated for three times
 head(iris.repeated3)
 ```
 
@@ -160,3 +163,6 @@ ggplot(perc_data2, aes(x=PC, y=percent)) +
   geom_text(aes(label=round(percent, 2)), size=4, vjust=-.5) + 
   ylim(0, 100)# iris.repeated3
 ```
+
+
+*Conclusion: we do not perform PCA on repeated measurements, but will select one measurement for each lesion and then calculate the pca results for the rest of observations.*
