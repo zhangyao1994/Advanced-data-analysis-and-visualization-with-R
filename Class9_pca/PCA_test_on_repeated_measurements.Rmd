@@ -22,12 +22,13 @@ The `iris` dataset has four measurements per observational unit (iris plant):
 head(iris)
 ddply(iris,.(Species),summarize,tol_in_group=length(Species))
 
-# iris.1to6 <- iris[1:6,]
-iris.1to6 <- iris[140:150,]
-iris.repeated1to6 <- iris.1to6[rep(seq_len(nrow(iris.1to6)), each=6),]
-iris.repeated1to6
+# make repeated observations
+iris.selected <- iris[1:150,]
+iris.repeated2 <- iris.selected[rep(seq_len(nrow(iris.selected)), each=2),] # each is repeated twice
+head(iris.repeated2)
 
-iris.repeated <- rbind(iris.repeated1to6,iris)
+iris.repeated3 <- rbind(iris.repeated2,iris) # each is repeated for three times
+head(iris.repeated3)
 ```
 
 
@@ -38,20 +39,28 @@ iris %>% select(-Species) %>% # remove Species column
   prcomp() ->                 # do PCA
   pca                         # store result as `pca`
 
-# iris.repeated
-iris.repeated %>% select(-Species) %>% # remove Species column
+# iris.repeated2
+iris.repeated2 %>% select(-Species) %>% # remove Species column
   scale() %>%                 # scale to 0 mean and unit variance
   prcomp() ->                 # do PCA
   pca1                         # store result as `pca`
 
+# iris.repeated3
+iris.repeated3 %>% select(-Species) %>% # remove Species column
+  scale() %>%                 # scale to 0 mean and unit variance
+  prcomp() ->                 # do PCA
+  pca2                        # store result as `pca`
+
 # now display the results from the PCA analysis
 pca
-pca1 # iris.repeated
+pca1 # iris.repeated2
+pca2 # iris.repeated3
 ```
 The main results from PCA are the standard deviations and the rotation matrix. We will talk about them below. First, however, let's plot the data in the principal components. Specifically, we will plot PC2 vs. PC1. The rotated data are available as `pca$x`:
 ```{r}
 head(pca$x)
-head(pca1$x)# iris.repeated
+head(pca1$x)# iris.repeated2
+head(pca2$x)# iris.repeated3
 ```
 As we can see, these data don't tell us to which species which observation belongs. We have to add the species information back in:
 ```{r}
@@ -59,20 +68,25 @@ As we can see, these data don't tell us to which species which observation belon
 pca_data <- data.frame(pca$x, Species=iris$Species)
 head(pca_data)
 
-pca_data1 <- data.frame(pca1$x, Species=iris.repeated$Species)
-head(pca_data1)# iris.repeated
+pca_data1 <- data.frame(pca1$x, Species=iris.repeated2$Species)
+head(pca_data1)# iris.repeated2
+
+pca_data2 <- data.frame(pca2$x, Species=iris.repeated3$Species)
+head(pca_data2)# iris.repeated3
 ```
 Now we can plot as usual:
 ```{r}
 ggplot(pca_data, aes(x=PC1, y=PC2, color=Species)) + geom_point()
-ggplot(pca_data1, aes(x=PC1, y=PC2, color=Species)) + geom_point()# iris.repeated
+ggplot(pca_data1, aes(x=PC1, y=PC2, color=Species)) + geom_point()# iris.repeated2
+ggplot(pca_data2, aes(x=PC1, y=PC2, color=Species)) + geom_point()# iris.repeated2
 ```
 In the PC2 vs PC1 plot, versicolor and virginica are much better separated.
 
 Next, let's look at the rotation matrx:
 ```{r}
 pca$rotation
-pca1$rotation# iris.repeated
+pca1$rotation# iris.repeated2
+pca2$rotation# iris.repeated3
 ```
 It tells us how much each variable contributes to each principal component. For example, `Sepal.Width` contributes little to PC1 but makes up much of PC2. Often it is helpful to plot the rotation matrix as arrows. This can be done as follows:
 ```{r}
@@ -89,9 +103,20 @@ ggplot(rotation_data) +
   ylim(-1.,1.) +
   coord_fixed() # fix aspect ratio to 1:1
 
-# iris.repeated
+# iris.repeated2
 # capture the rotation matrix in a data frame
 rotation_data1 <- data.frame(pca1$rotation, variable=row.names(pca1$rotation))
+# now plot, using geom_segment() for arrows and geom_text for labels
+ggplot(rotation_data1) + 
+  geom_segment(aes(xend=PC1, yend=PC2), x=0, y=0, arrow=arrow_style) + 
+  geom_text(aes(x=PC1, y=PC2, label=variable), hjust=0, size=3, color='red') + 
+  xlim(-1.,1.25) + 
+  ylim(-1.,1.) +
+  coord_fixed() # fix aspect ratio to 1:1
+
+# iris.repeated3
+# capture the rotation matrix in a data frame
+rotation_data1 <- data.frame(pca2$rotation, variable=row.names(pca1$rotation))
 # now plot, using geom_segment() for arrows and geom_text for labels
 ggplot(rotation_data1) + 
   geom_segment(aes(xend=PC1, yend=PC2), x=0, y=0, arrow=arrow_style) + 
@@ -109,7 +134,10 @@ percent <- 100*pca$sdev^2/sum(pca$sdev^2)
 percent
 
 percent1 <- 100*pca1$sdev^2/sum(pca1$sdev^2)
-percent1# iris.repeated
+percent1# iris.repeated2
+
+percent2 <- 100*pca2$sdev^2/sum(pca2$sdev^2)
+percent2# iris.repeated3
 ```
 The first component explains 73% of the variance, the second 23%, the third 4% and the last 0.5%.
 We can visualize these results nicely in a bar plot:
@@ -124,5 +152,11 @@ perc_data1 <- data.frame(percent=percent1, PC=1:length(percent1))
 ggplot(perc_data1, aes(x=PC, y=percent)) + 
   geom_col() + 
   geom_text(aes(label=round(percent, 2)), size=4, vjust=-.5) + 
-  ylim(0, 100)# iris.repeated
+  ylim(0, 100)# iris.repeated2
+
+perc_data2 <- data.frame(percent=percent2, PC=1:length(percent2))
+ggplot(perc_data2, aes(x=PC, y=percent)) + 
+  geom_col() + 
+  geom_text(aes(label=round(percent, 2)), size=4, vjust=-.5) + 
+  ylim(0, 100)# iris.repeated3
 ```
